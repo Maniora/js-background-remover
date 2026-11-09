@@ -1,0 +1,6 @@
+node_modules/
+output_*.png
+cutout.png
+.env
+.DS_Store
+Thumbs.db

@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AI Background Remover - TechTalksByMani</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      background: #090d16;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      color: #fff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+      padding: 1.5rem;
+    }
+    .header { text-align: center; margin-bottom: 1.25rem; }
+    .header h1 { font-size: 1.8rem; background: linear-gradient(135deg, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    .header p { color: #94a3b8; font-size: 0.95rem; margin-top: 0.25rem; }
+
+    /* Upload Controls */
+    .controls {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      justify-content: center;
+      align-items: center;
+      margin-bottom: 1rem;
+    }
+    .upload-btn {
+      background: linear-gradient(135deg, #0284c7, #38bdf8);
+      color: white;
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 0.65rem 1.25rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      gap: 0.5rem;
+      transition: transform 0.15s, opacity 0.15s;
+      border: none;
+    }
+    .upload-btn:hover { opacity: 0.9; transform: translateY(-1px); }
+    .download-btn {
+      background: #1e293b;
+      color: #38bdf8;
+      border: 1px solid #38bdf8;
+      font-weight: 600;
+      font-size: 0.9rem;
+      padding: 0.65rem 1.25rem;
+      border-radius: 0.5rem;
+      cursor: pointer;
+      text-decoration: none;
+      display: none;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .download-btn:hover { background: #334155; }
+
+    /* Edge Tuning Options */
+    .tuning-bar {
+      display: flex;
+      gap: 1.5rem;
+      align-items: center;
+      background: #1e293b;
+      padding: 0.5rem 1.25rem;
+      border-radius: 0.75rem;
+      margin-bottom: 1.25rem;
+      font-size: 0.85rem;
+      border: 1px solid #334155;
+    }
+    .tuning-group {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    select {
+      background: #0f172a;
+      color: #38bdf8;
+      border: 1px solid #334155;
+      padding: 0.3rem 0.6rem;
+      border-radius: 0.4rem;
+      font-size: 0.85rem;
+      cursor: pointer;
+      outline: none;
+    }
+
+    /* Slider Container */
+    .comparison-container {
+      position: relative;
+      width: 480px;
+      max-width: 90vw;
+      height: 580px;
+      overflow: hidden;
+      border-radius: 1.25rem;
+      box-shadow: 0 20px 40px rgba(0,0,0,0.7), 0 0 0 1px rgba(255,255,255,0.1);
+      user-select: none;
+      background: #1e293b;
+      border: 2px dashed transparent;
+      transition: border-color 0.2s;
+    }
+    .comparison-container.dragover { border-color: #38bdf8; }
+
+    /* Background Styles for preview */
+    .bg-checkerboard {
+      background-image: 
+        linear-gradient(45deg, #1e293b 25%, transparent 25%), 
+        linear-gradient(-45deg, #1e293b 25%, transparent 25%), 
+        linear-gradient(45deg, transparent 75%, #1e293b 75%), 
+        linear-gradient(-45deg, transparent 75%, #1e293b 75%);
+      background-size: 20px 20px;
+      background-position: 0 0, 0 10px, 10px -10px, -10px 0px;
+      background-color: #0f172a;
+    }
+    .bg-white { background-color: #ffffff !important; background-image: none !important; }
+    .bg-black { background-color: #000000 !important; background-image: none !important; }
+    .bg-green { background-color: #00ff00 !important; background-image: none !important; }
+
+    .img-wrapper {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .img-wrapper img, .img-before-wrapper img {
+      width: 480px;
+      max-width: 90vw;
+      height: 100%;
+      object-fit: cover;
+      display: block;
+    }
+
+    .img-before-wrapper {
+      position: absolute;
+      top: 0;
+      left: 0;
+      height: 100%;
+      width: 50%;
+      overflow: hidden;
+      z-index: 2;
+      border-right: 2px solid #38bdf8;
+    }
+
+    .slider-handle {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 42px;
+      height: 42px;
+      border-radius: 50%;
+      background: #38bdf8;
+      box-shadow: 0 4px 15px rgba(56, 189, 248, 0.6);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 3;
+      pointer-events: none;
+      color: #090d16;
+      font-weight: bold;
+      font-size: 1.1rem;
+    }
+
+    .slider-range {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      opacity: 0;
+      cursor: ew-resize;
+      z-index: 4;
+    }
+
+    .tag {
+      position: absolute;
+      bottom: 1rem;
+      padding: 0.35rem 0.75rem;
+      border-radius: 0.5rem;
+      font-size: 0.8rem;
+      font-weight: 600;
+      letter-spacing: 0.5px;
+      background: rgba(15, 23, 42, 0.85);
+      backdrop-filter: blur(8px);
+      border: 1px solid rgba(255,255,255,0.1);
+      z-index: 3;
+    }
+    .tag-before { left: 1rem; color: #f87171; }
+    .tag-after { right: 1rem; color: #38bdf8; }
+
+    /* Loading Overlay */
+    .loading-overlay {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      background: rgba(9, 13, 22, 0.85);
+      backdrop-filter: blur(5px);
+      display: none;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      z-index: 10;
+    }
+    .spinner {
+      width: 44px;
+      height: 44px;
+      border: 4px solid rgba(56, 189, 248, 0.2);
+      border-top-color: #38bdf8;
+      border-radius: 50%;
+      animation: spin 1s infinite linear;
+      margin-bottom: 1rem;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #statusText { color: #38bdf8; font-weight: 600; font-size: 0.95rem; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <h1>⚡ AI Background Remover</h1>
+    <p>Upload photo or drag & drop below to see before/after</p>
+  </div>
+
+  <div class="controls">
+    <label class="upload-btn" for="fileInput">
+      📁 Upload Photo
+    </label>
+    <input type="file" id="fileInput" accept="image/*" style="display:none">
+    <a id="downloadBtn" class="download-btn" download="cutout.png">⬇️ Download Cutout</a>
+  </div>
+
+  <!-- Edge Tuning Controls -->
+  <div class="tuning-bar">
+    <div class="tuning-group">
+      <span>✨ Edge Clean:</span>
+      <select id="edgeCleanSelect">
+        <option value="115" selected>Crisp (No White Halo)</option>
+        <option value="135">Tight Trim (Clean Hair/Ears)</option>
+        <option value="90">Soft Feather</option>
+      </select>
+    </div>
+    <div class="tuning-group">
+      <span>🎨 Preview BG:</span>
+      <select id="bgSelect">
+        <option value="bg-checkerboard" selected>Checkerboard</option>
+        <option value="bg-white">Pure White</option>
+        <option value="bg-black">Solid Black</option>
+        <option value="bg-green">Green Screen</option>
+      </select>
+    </div>
+  </div>
+
+  <div class="comparison-container" id="container">
+    <!-- After image (Cutout) -->
+    <div class="img-wrapper bg-checkerboard" id="afterBgWrapper">
+      <img id="afterImg" src="output.png" alt="Removed Background">
+      <span class="tag tag-after">AFTER (Clean Cutout)</span>
+    </div>
+
+    <!-- Before image (Original) -->
+    <div class="img-before-wrapper" id="beforeWrapper">
+      <img id="beforeImg" src="input.jpg" alt="Original Photo">
+      <span class="tag tag-before">BEFORE (Original)</span>
+    </div>
+
+    <!-- Slider handle -->
+    <div class="slider-handle" id="handle">⇄</div>
+
+    <!-- Invisible Range Input -->
+    <input type="range" min="0" max="100" value="50" class="slider-range" id="rangeInput">
+
+    <!-- Loading spinner overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+      <div class="spinner"></div>
+      <div id="statusText">⏳ Processing background removal...</div>
+    </div>
+  </div>
+
+  <script>
+    const fileInput = document.getElementById('fileInput');
+    const container = document.getElementById('container');
+    const beforeImg = document.getElementById('beforeImg');
+    const afterImg = document.getElementById('afterImg');
+    const range = document.getElementById('rangeInput');
+    const beforeWrapper = document.getElementById('beforeWrapper');
+    const handle = document.getElementById('handle');
+    const loadingOverlay = document.getElementById('loadingOverlay');
+    const statusText = document.getElementById('statusText');
+    const downloadBtn = document.getElementById('downloadBtn');
+    const edgeCleanSelect = document.getElementById('edgeCleanSelect');
+    const bgSelect = document.getElementById('bgSelect');
+    const afterBgWrapper = document.getElementById('afterBgWrapper');
+
+    let currentFile = null;
+
+    // Switch Preview Background
+    bgSelect.addEventListener('change', (e) => {
+      afterBgWrapper.className = 'img-wrapper ' + e.target.value;
+    });
+
+    // Re-process when edge clean level changes
+    edgeCleanSelect.addEventListener('change', () => {
+      if (currentFile) handleImageUpload(currentFile);
+    });
+
+    // Slider move
+    range.addEventListener('input', (e) => {
+      const val = e.target.value;
+      beforeWrapper.style.width = val + '%';
+      handle.style.left = val + '%';
+    });
+
+    // Handle file selection
+    fileInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        currentFile = file;
+        handleImageUpload(file);
+      }
+    });
+
+    // Drag and drop events
+    ['dragenter', 'dragover'].forEach(name => {
+      container.addEventListener(name, (e) => {
+        e.preventDefault();
+        container.classList.add('dragover');
+      });
+    });
+    ['dragleave', 'drop'].forEach(name => {
+      container.addEventListener(name, (e) => {
+        e.preventDefault();
+        container.classList.remove('dragover');
+      });
+    });
+    container.addEventListener('drop', (e) => {
+      const file = e.dataTransfer.files[0];
+      if (file && file.type.startsWith('image/')) {
+        currentFile = file;
+        handleImageUpload(file);
+      }
+    });
+
+    async function handleImageUpload(file) {
+      beforeImg.src = URL.createObjectURL(file);
+      loadingOverlay.style.display = 'flex';
+      statusText.innerText = '⏳ AI Removing Background & Cleaning Edges...';
+
+      const threshold = edgeCleanSelect.value;
+
+      try {
+        let resultBlob = null;
+
+        // Call backend API with edge thresholding & defringing
+        try {
+          const response = await fetch('/api/remove-bg', {
+            method: 'POST',
+            headers: {
+              'Content-Type': file.type || 'image/jpeg',
+              'X-Edge-Threshold': threshold,
+              'X-Defringe': '0.9'
+            },
+            body: file
+          });
+          if (response.ok) {
+            resultBlob = await response.blob();
+          }
+        } catch (apiErr) {
+          console.warn('Backend server not responding, using client fallback...');
+        }
+
+        // Client-side fallback if server is offline
+        if (!resultBlob) {
+          const { removeBackground } = await import('https://cdn.jsdelivr.net/npm/@imgly/background-removal@1.4.5/+esm');
+          resultBlob = await removeBackground(file);
+        }
+
+        const cutoutUrl = URL.createObjectURL(resultBlob);
+        afterImg.src = cutoutUrl;
+
+        downloadBtn.href = cutoutUrl;
+        downloadBtn.style.display = 'inline-flex';
+
+        range.value = 50;
+        beforeWrapper.style.width = '50%';
+        handle.style.left = '50%';
+      } catch (err) {
+        console.error(err);
+        alert('Error: ' + err.message);
+      } finally {
+        loadingOverlay.style.display = 'none';
+      }
+    }
+  </script>
+</body>
+</html>
